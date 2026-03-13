@@ -2,6 +2,7 @@
 
 import type { UIMessage } from "ai";
 import { WeatherCard } from "@/components/tools/WeatherCard";
+import { ShoppingCard } from "@/components/tools/ShoppingCard";
 import { BotIcon, UserIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -9,13 +10,14 @@ import { cn } from "@/lib/utils";
 // 要添加新工具时，只需在这里注册即可
 const TOOL_COMPONENTS: Record<string, React.ComponentType<any>> = {
   getWeather: WeatherCard,
+  getShopping: ShoppingCard,
   // getFlights: FlightCard,   // 未来扩展
-  // showStock: StockChart,    // 未来扩展
 };
 
 // ─── 单条消息渲染 ───────────────────────────────────────────────────────────
-function ChatMessage({ message }: { message: UIMessage }) {
+function ChatMessage({ message, onSend }: { message: UIMessage; onSend?: (text: string) => void }) {
   const isUser = message.role === "user";
+  if (!isUser) console.log("🤖 assistant parts:", JSON.stringify(message.parts, null, 2));
 
   return (
     <div className={cn("flex gap-3 group", isUser && "flex-row-reverse")}>
@@ -34,6 +36,8 @@ function ChatMessage({ message }: { message: UIMessage }) {
         {message.parts?.map((part, i) => {
           // ① 文本部分 → 气泡
           if (part.type === "text" && part.text.trim()) {
+            const displayText = part.text.replace(/^\[(纯文字回复|购物工具)\]\s*/, "");
+            if (!displayText.trim()) return null;
             return (
               <div key={i} className={cn(
                 "rounded-2xl px-4 py-2.5 text-sm leading-relaxed",
@@ -41,7 +45,7 @@ function ChatMessage({ message }: { message: UIMessage }) {
                   ? "bg-violet-600 text-white rounded-tr-sm"
                   : "bg-zinc-800 text-zinc-100 rounded-tl-sm"
               )}>
-                {part.text}
+                {displayText}
               </div>
             );
           }
@@ -68,7 +72,7 @@ function ChatMessage({ message }: { message: UIMessage }) {
 
             // 有对应组件 → 渲染生成式 UI
             if (Component) {
-              return <Component key={i} {...toolPart.output} />;
+              return <Component key={i} {...toolPart.output} onSend={onSend} />;
             }
 
             // 无对应组件 → JSON fallback
@@ -90,13 +94,14 @@ function ChatMessage({ message }: { message: UIMessage }) {
 interface ChatMessagesProps {
   messages: UIMessage[];
   isLoading: boolean;
+  onSend?: (text: string) => void;
 }
 
-export function ChatMessages({ messages, isLoading }: ChatMessagesProps) {
+export function ChatMessages({ messages, isLoading, onSend }: ChatMessagesProps) {
   return (
     <div className="flex flex-col gap-6 py-4">
       {messages.map((msg) => (
-        <ChatMessage key={msg.id} message={msg} />
+        <ChatMessage key={msg.id} message={msg} onSend={onSend} />
       ))}
 
       {/* AI thinking indicator */}
@@ -109,7 +114,7 @@ export function ChatMessages({ messages, isLoading }: ChatMessagesProps) {
             {[0, 1, 2].map((i) => (
               <span
                 key={i}
-                className="w-1.5 h-1.5 rounded-full bg-gray-400 animate-bounce"
+                className="w-1.5 h-1.5 rounded-full bg-zinc-400 animate-bounce"
                 style={{ animationDelay: `${i * 150}ms` }}
               />
             ))}

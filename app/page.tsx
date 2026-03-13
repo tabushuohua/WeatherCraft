@@ -2,16 +2,16 @@
 
 import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport } from "ai";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useMemo } from "react";
 import { ChatMessages } from "@/components/chat/ChatMessages";
 import { ChatInput } from "@/components/chat/ChatInput";
 import { SparklesIcon } from "lucide-react";
 
 export default function Home() {
-  // v6: api 必须通过 DefaultChatTransport 传入，不能直接写在 useChat({}) 里
-  const { messages, sendMessage, status } = useChat({
-    transport: new DefaultChatTransport({ api: "/api/chat" }),
-  });
+  // transport 必须用 useMemo 稳定引用，避免每次渲染重新创建
+  const transport = useMemo(() => new DefaultChatTransport({ api: "/api/chat" }), []);
+
+  const { messages, sendMessage, status } = useChat({ transport });
   const isLoading = status === "streaming" || status === "submitted";
 
   const [input, setInput] = useState("");
@@ -28,15 +28,15 @@ export default function Home() {
   };
 
   return (
-    <div className="min-h-screen bg-white text-black flex flex-col">
+    <div className="min-h-screen bg-white text-zinc-100 flex flex-col">
       {/* Header */}
       <header className="sticky top-0 z-10 bg-white/80 backdrop-blur-xl border-b border-zinc-800">
         <div className="max-w-2xl mx-auto px-4 py-4 flex items-center gap-3">
           <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-teal-400 to-cyan-600 flex items-center justify-center shadow-lg shadow-teal-500/20">
-            <SparklesIcon size={20} className="text-white" />
+            <SparklesIcon size={16} className="text-white" />
           </div>
           <div>
-            <h1 className="text-base font-semibold tracking-tight">Generative UI Chat</h1>
+            <h1 className="text-base font-semibold tracking-tight text-black">Generative UI Chat</h1>
             <p className="text-xs text-zinc-500">AI 回答 = 交互式组件</p>
           </div>
         </div>
@@ -51,7 +51,7 @@ export default function Home() {
                 <SparklesIcon size={28} className="text-white" />
               </div>
               <div>
-                <h2 className="text-xl font-semibold mb-2">你好！我是生成式 UI 助手</h2>
+                <h2 className="text-xl font-semibold mb-2 text-zinc-900">你好！我是生成式 UI 助手</h2>
                 <p className="text-zinc-500 text-sm max-w-sm">
                   不同于普通聊天，我的回答可以是
                   <span className="text-teal-400">交互式卡片组件</span>。
@@ -62,7 +62,7 @@ export default function Home() {
             </div>
           )}
 
-          <ChatMessages messages={messages} isLoading={isLoading} />
+          <ChatMessages messages={messages} isLoading={isLoading} onSend={handleSend} />
           <div ref={bottomRef} />
         </div>
       </main>
