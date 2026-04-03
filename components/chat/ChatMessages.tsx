@@ -1,17 +1,34 @@
 "use client";
 
 import type { UIMessage } from "ai";
-import { WeatherCard } from "@/components/tools/WeatherCard";
-import { ShoppingCard } from "@/components/tools/ShoppingCard";
+import dynamic from "next/dynamic";
 import { BotIcon, UserIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-// ─── Tool → Component 映射表 ────────────────────────────────────────────────
+// ─── 骨架屏：懒加载期间的占位 ───────────────────────────────────────────────
+function CardSkeleton() {
+  return (
+    <div className="rounded-2xl bg-zinc-800 p-4 w-72 animate-pulse">
+      <div className="h-4 bg-zinc-700 rounded w-1/2 mb-3" />
+      <div className="h-16 bg-zinc-700 rounded mb-3" />
+      <div className="h-4 bg-zinc-700 rounded w-3/4" />
+    </div>
+  );
+}
+
+// ─── Tool → Component 映射表（懒加载版）────────────────────────────────────
 // 要添加新工具时，只需在这里注册即可
+// loading 期间显示骨架屏，ssr:false 避免服务端渲染交互组件
 const TOOL_COMPONENTS: Record<string, React.ComponentType<any>> = {
-  getWeather: WeatherCard,
-  getShopping: ShoppingCard,
-  // getFlights: FlightCard,   // 未来扩展
+  getWeather: dynamic(
+    () => import("@/components/tools/WeatherCard").then(m => m.WeatherCard),
+    { loading: () => <CardSkeleton />, ssr: false }
+  ),
+  getShopping: dynamic(
+    () => import("@/components/tools/ShoppingCard").then(m => m.ShoppingCard),
+    { loading: () => <CardSkeleton />, ssr: false }
+  ),
+  // getFlights: dynamic(() => import("@/components/tools/FlightCard").then(m => m.FlightCard), ...),
 };
 
 // ─── 单条消息渲染 ───────────────────────────────────────────────────────────
