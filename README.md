@@ -54,6 +54,31 @@ getShopping execute 函数内部再次调用 DeepSeek，专门生成符合 Shopp
 ## 流式状态管理
 基于 AI SDK v6 的 UIMessage.parts 流式更新机制，实现「工具调用中」骨架屏 → 「数据就绪」组件切换的无缝过渡，无闪烁、无重排。
 
+## RAG 穿搭知识库
+项目已接入穿搭知识检索链路：
+- 原始知识文本位于 [data/fashion-kb](data/fashion-kb)
+- 检索逻辑位于 [lib/rag/retrieve.ts](lib/rag/retrieve.ts)
+- 向量索引脚本位于 [scripts/index-fashion-kb.js](scripts/index-fashion-kb.js)
+- 聊天接口会在穿搭相关问题上先检索知识片段，再把上下文注入 LLM
+
+构建知识库索引：
+
+```bash
+npm run rag:index
+```
+
+需要先配置 `OPENAI_API_KEY`，默认使用 `text-embedding-3-small` 生成向量。若索引未生成，系统会退回到关键词检索，保证基础可用性。
+
+如果使用 AiHubMix（OpenAI 兼容接口），推荐配置：
+
+```bash
+AIHUBMIX_API_KEY=sk-xxx
+AIHUBMIX_BASE_URL=https://aihubmix.com/v1
+AIHUBMIX_EMBEDDING_MODEL=gemini-embedding-001
+```
+
+脚本与运行时检索均支持以上变量；也兼容 `OPENAI_API_KEY` / `OPENAI_EMBEDDING_URL` / `OPENAI_EMBEDDING_MODEL`。
+
 # Getting Started
 
 First, run the development server:
