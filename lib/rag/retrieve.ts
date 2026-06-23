@@ -1,5 +1,6 @@
 import { embedText } from "./embeddings";
 import { cosineSimilarity, loadFashionDocuments, loadFashionIndex, type FashionChunk } from "./vector-store";
+import qdrant from "./qdrant";
 
 const FASHION_KEYWORDS = [
   "穿搭",
@@ -113,6 +114,7 @@ export async function retrieveFashionContext(query: string, topK = 4): Promise<F
     };
   }
 
+  // 默认用 keyword 排序作为基础回退
   let ranked: RetrievedFashionChunk[] = chunks
     .map((chunk) => ({
       ...chunk,
@@ -121,19 +123,30 @@ export async function retrieveFashionContext(query: string, topK = 4): Promise<F
     }))
     .sort((a, b) => b.score - a.score);
 
-  if (index?.chunks?.length && chunks.some((chunk) => Array.isArray(chunk.embedding) && chunk.embedding.length > 0)) {
-    try {
-      const queryVector = await embedText(query);
-      ranked = chunks
-        .map((chunk) => ({
-          ...chunk,
-          score: chunk.embedding ? cosineSimilarity(queryVector.vector, chunk.embedding) : 0,
-          reason: "vector" as const,
-        }))
-        .sort((a, b) => b.score - a.score);
-    } catch {
-      // 退回 keyword ranking
+  // 尝试使用 Qdrant 向量检索（优先），若失败则保留 keyword 结果
+  const collection = process.env.QDRANT_COLLECTION || "fashion_kb";
+  try {
+    const queryVector = await embedText(query);
+    const topForSearch = Math.max(topK * 3, 8);
+    const res = await qdrant.searchCollection(collection, queryVector.vector, topForSearch);
+
+    if (Array.isArray(res) && res.length > 0) {
+      const mapped: RetrievedFashionChunk[] = [];
+      for (const item of res) {
+        const hit = item as any;
+        const id = String(hit.id ?? hit.payload?.id ?? "");
+        const score = Number(hit.score ?? hit.payload?.score ?? 0) || 0;
+        const found = chunks.find((c) => String(c.id) === id);
+        if (!found) continue;
+        mapped.push({ ...found, score, reason: "vector" });
+      }
+
+      if (mapped.length > 0) {
+        ranked = mapped.sort((a, b) => b.score - a.score);
+      }
     }
+  } catch (err) {
+    // Qdrant 或 embedding 失败，继续使用 keyword ranking
   }
 
   const selected = ranked.filter((chunk) => chunk.score > 0).slice(0, topK);
